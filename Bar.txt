@@ -1,0 +1,70 @@
+## 1. 사용할 패키지 불러오기
+library(ggplot2)
+library(openxlsx)
+library(dplyr)
+
+## 2. 데이터 불러오기
+data_1415 = read.xlsx('1415_cleaned.xlsx')
+data_1516 = read.xlsx('NUBS_1516.xlsx')
+data_1617 = read.xlsx('NUBS_1617.xlsx')
+data_1718 = read.xlsx('NUBS_1718.xlsx')
+
+## 3. 데이터 전처리
+### (1) Natinality가 ROW인 경우 제거
+data_1415 = data_1415[data_1415$nationality != 'ROW', ]
+data_1516 = data_1516[data_1516$nationality != 'ROW', ]
+data_1617 = data_1617[data_1617$nationality != 'ROW', ]
+data_1718 = data_1718[data_1718$nationality != 'ROW', ]
+
+### (2) 연도 정의
+data_1415$Year = '14-15'
+data_1516$Year = '15-16'
+data_1617$Year = '16-17'
+data_1718$Year = '17-18'
+
+### (3) 필요한 Column만 남기기
+data_1415 = data_1415[,c('nationality', 'Year')]
+data_1516 = data_1516[,c('nationality', 'Year')]
+data_1617 = data_1617[,c('nationality', 'Year')]
+data_1718 = data_1718[,c('nationality', 'Year')]
+
+### (4) NA 제거
+data_1415 = data_1415[!is.na(data_1415$nationality), ]
+data_1516 = data_1516[!is.na(data_1516$nationality), ]
+data_1617 = data_1617[!is.na(data_1617$nationality), ]
+data_1718 = data_1718[!is.na(data_1718$nationality), ]
+
+### (5) 합치기
+data = rbind(data_1415, data_1516, data_1617, data_1718)
+
+### (6) 상위 19개 나라 탐색
+top_countries = data %>% group_by(nationality) %>% summarise(Count = n())
+top_countries = top_countries[order(top_countries$Count, decreasing = T), ]
+top_countries = top_countries$nationality[1:19]
+top_countries
+
+### (7) 상위 19개 나라 정보만 남기기
+data_top19 = data[data$nationality %in% top_countries, ]
+
+## 4. 시각화
+count_table = data_top19 %>% group_by(Year, nationality) %>% summarise(Count = n())
+count_table = count_table[count_table$Year == '14-15', ]
+count_table$nationality = factor(count_table$nationality)
+count_table$color = count_table$nationality
+count_table$color = factor(count_table$color)
+count_table = count_table[order(count_table$Count), ]
+count_table$Position <- factor(count_table$nationality, levels = count_table$nationality)
+count_table$percentage = round(100 * count_table$Count / sum(count_table$Count), 2)
+count_table$text = ''
+for(i in 1:19){
+  count_table$text[i] = paste(as.character(count_table$Count[i]), ' (', as.character(count_table$percentage[i]), ')', sep = '')
+}
+
+ggplot(data=count_table, aes(x=Position, y=Count, fill=color, label = text)) +
+  geom_bar(stat='identity') + 
+  geom_text(aes(label=text),color="black",size=5,position=position_stack(vjust=1))
+  ggtitle("Nationality Distribution 14-15") +
+  xlab("Nationality") + ylab("Count")
+  
+  
+  

@@ -1,0 +1,84 @@
+## 1. 사용할 패키지 불러오기
+library(ggplot2)
+library(openxlsx)
+library(dplyr)
+
+## 2. 데이터 불러오기
+data_1415 = read.xlsx('1415_cleaned.xlsx')
+data_1516 = read.xlsx('NUBS_1516.xlsx')
+data_1617 = read.xlsx('NUBS_1617.xlsx')
+data_1718 = read.xlsx('NUBS_1718.xlsx')
+
+## 3. 데이터 전처리
+### (1) Natinality가 ROW인 경우 제거
+data_1415 = data_1415[data_1415$nationality != 'ROW', ]
+data_1516 = data_1516[data_1516$nationality != 'ROW', ]
+data_1617 = data_1617[data_1617$nationality != 'ROW', ]
+data_1718 = data_1718[data_1718$nationality != 'ROW', ]
+
+### (2) 연도 정의
+data_1415$Year = '14-15'
+data_1516$Year = '15-16'
+data_1617$Year = '16-17'
+data_1718$Year = '17-18'
+
+### (3) 필요한 Column만 남기기
+data_1415 = data_1415[,c('nationality', 'Year')]
+data_1516 = data_1516[,c('nationality', 'Year')]
+data_1617 = data_1617[,c('nationality', 'Year')]
+data_1718 = data_1718[,c('nationality', 'Year')]
+
+### (4) NA 제거
+data_1415 = data_1415[!is.na(data_1415$nationality), ]
+data_1516 = data_1516[!is.na(data_1516$nationality), ]
+data_1617 = data_1617[!is.na(data_1617$nationality), ]
+data_1718 = data_1718[!is.na(data_1718$nationality), ]
+
+### (5) 합치기
+data = rbind(data_1415, data_1516, data_1617, data_1718)
+
+### (6) 상위 6개 나라 탐색
+top_countries = data %>% group_by(nationality) %>% summarise(Count = n())
+top_countries = top_countries[order(top_countries$Count, decreasing = T), ]
+top_countries = top_countries$nationality[1:6]
+top_countries
+
+### (7) 상위 6개 나라 정보만 남기기
+data_top6 = data[data$nationality %in% top_countries, ]
+
+## 4. 시각화
+count_table = data_top6 %>% group_by(Year, nationality) %>% summarise(Count = n())
+
+ggplot(data=count_table, aes(x=Year, y=Count, group=nationality)) +
+  geom_line(aes(color = nationality), size=1, linetype = 6)+
+  geom_point(aes(shape=nationality, color = nationality), size = 3)
+
+
+### (2) 파이차트
+top_countries = data_1415 %>% group_by(nationality) %>% summarise(Count = n())
+top_countries = top_countries[order(top_countries$Count, decreasing = T), ]
+top_countries = top_countries$nationality[1:6]
+top_countries
+
+data_1415$nationality[!(data_1415$nationality %in% top_countries)] = 'Etc.'
+data_1415$nationality = ifelse(data_1415$nationality %in% c('CHINESE', 'INDIAN'), data_1415$nationality, 'Etc.')
+
+
+data_1415_count = data_1415 %>% group_by(nationality) %>% summarise(Count = n())
+
+
+
+ggplot(data_1415_count, aes (x="", y = Count, fill = factor(nationality))) + 
+  geom_bar(width = 1, stat = "identity") +
+  geom_text(aes(label = paste(nationality, round(Count / sum(Count) * 100, 1), "%")),
+            position = position_stack(vjust = 0.5), ,fontface='bold') +
+  theme_classic() +
+  theme(plot.title = element_text(hjust=0.5),
+        axis.line = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank()) +
+  labs(fill = "nationality",
+       x = NULL,
+       y = NULL,
+       title = "Pie Chart of 14-15") + 
+  coord_polar("y", start=45)
